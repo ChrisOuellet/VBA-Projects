@@ -1,0 +1,175 @@
+Sub fetchRequest()
+    Dim SQLuser As String
+    Dim SQLdata As String
+    Dim SQLactions As String
+    Dim DBName As String
+    Dim arrDataHC As Variant
+    Dim arrDataPHAC As Variant
+    Dim arrMilestones As Variant
+    Dim arrMile As Variant
+    Dim i As Long
+    Dim j As Long
+    Dim totalTime As Single
+    Dim dictHCReq As New Dictionary
+    Dim dictPHACReq As New Dictionary
+    Dim dictMile As New Dictionary
+    Dim userName As String
+    Dim firstName As String
+    Dim lastName As String
+    
+        'Call turnOFF
+        'Call protectSheet
+        
+        'get USERNAME of computer that is opening Excel file
+        userName = Environ("UserName")
+        SQLuser = "SELECT trustee.trustee_name, trustee.USERFIRSTNAME, trustee.USERLASTNAME " & _
+                  "FROM trustee " & _
+                  "WHERE trustee.trustee_name='" & userName & "';"
+        
+        'get first & last name of user
+        DBName = "HC-SC"
+        arrDataHC = ReturnArray(DBName, SQLuser)
+        firstName = arrDataHC(1, 0)
+        lastName = arrDataHC(2, 0)
+        
+        'set SQL data open requests
+        SQLdata = "SELECT IKNCASEACTIONS.CACTIONREQUESTID, IKNCASEACTIONS.CACTIONCODEID, IKNCASEACTIONS.CACTIONDATECOMPLETED, " & _
+                    "IKNREQUESTS.REQUESTTYPE, IKNREQUESTS.REQUESTNUMBER, IKNREQUESTS.REQUESTDUEDATE, IKNREQUESTS.REQUESTDAYSEXTENDED, IKNREQUESTS.REQUESTDAYSTAKEN " & _
+                  "FROM IKNACTIONCODES INNER JOIN (IKNCASEACTIONS INNER JOIN (trustee INNER JOIN IKNREQUESTS " & _
+                    "ON trustee.trustee_id = IKNREQUESTS.REQUESTOFFICERASSIGNEDID) ON IKNCASEACTIONS.CACTIONREQUESTID = IKNREQUESTS.REQUESTID) " & _
+                    "ON IKNACTIONCODES.ACTIONID = IKNCASEACTIONS.CACTIONCODEID " & _
+                  "WHERE trustee.trustee_name='" & userName & "' AND IKNREQUESTS.REQUESTDATECLOSED Is Null;"
+        
+        'get actions assigned to user - *Not fully activated in beta 0.1
+        SQLactions = "SELECT IKNREQUESTS.REQUESTTYPE, IKNREQUESTS.REQUESTNUMBER, IKNCASEACTIONS.CACTIONRESPONSEDUE, IKNACTIONCODES.ACTION, IKNCASEACTIONS.CACTIONCOMMENT " & _
+                     "FROM IKNRESPONSIBLE INNER JOIN ((IKNCASEACTIONS INNER JOIN IKNREQUESTS ON IKNCASEACTIONS.CACTIONREQUESTID = IKNREQUESTS.REQUESTID) " & _
+                        "INNER JOIN IKNACTIONCODES ON IKNCASEACTIONS.CACTIONCODEID = IKNACTIONCODES.ACTIONID) ON IKNRESPONSIBLE.RESPONSIBLEID = IKNCASEACTIONS.CACTIONRESPONSIBLEID " & _
+                     "WHERE IKNCASEACTIONS.CACTIONDATECOMPLETED Is Null AND IKNRESPONSIBLE.FIRSTNAME='" & firstName & "' AND IKNRESPONSIBLE.LASTNAME='" & lastName & "' " & _
+                     "ORDER BY IKNREQUESTS.REQUESTNUMBER;"
+
+        '1 - PROCESS MILESTONES ********************
+        'get open requests
+        DBName = "HC-SC"
+        arrDataHC = ReturnArray(DBName, SQLdata)
+        DBName = "PHAC-ASPC"
+        arrDataPHAC = ReturnArray(DBName, SQLdata)
+
+        'process open requests and assign milestone
+        If arrDataHC(0, 0) = 0 Then
+            If arrDataPHAC(0, 0) = 0 Then
+                MsgBox "There are no requests assigned to " & firstName & " " & lastName
+                Exit Sub
+            Else
+                arrMilestones = buildMilestonesOne(arrDataPHAC, "PHAC")
+            End If
+        ElseIf arrDataPHAC(0, 0) = 0 Then
+            arrMilestones = buildMilestonesOne(arrDataHC, "HC")
+        Else
+            arrMilestones = buildMilestonesTwo(arrDataHC, arrDataPHAC)
+        End If
+        
+        '2 - PROCESS ASSIGNED ACTIONS **************
+        Dim arrActionHC As Variant
+        Dim arrActionPHAC As Variant
+        
+        DBName = "HC-SC"
+        arrActionHC = ReturnArray(DBName, SQLactions)
+        DBName = "PHAC-ASPC"
+        arrActionPHAC = ReturnArray(DBName, SQLactions)
+        
+        '==========================================================
+        ' To code next:
+        '   report on active assigned actions
+        '   need to filter out useless actions
+        '3 - PROCESS COMPLAINTS, COURT CASES & LEGAL REVIEW
+        '==========================================================
+        
+        'set # of milestones in Dictionary
+        For i = LBound(arrMilestones, 2) To UBound(arrMilestones, 2)
+            If dictMile.Exists(arrMilestones(5, i)) = False Then
+                dictMile.Add arrMilestones(5, i), 1
+            Else
+                'ReDim Preserve dictMile(arrMilestones(0, i))(0 to 5, 0 to
+                dictMile(arrMilestones(5, i)) = dictMile(arrMilestones(5, i)) + 1
+            End If
+        Next i
+        
+        'set each milestones to array
+        Dim k As Variant
+        For Each k In dictMile.Keys
+            ReDim arrMile(5, dictMile(k) - 1)
+            j = 0
+            'For j = 0 To k
+                For i = LBound(arrMilestones, 2) To UBound(arrMilestones, 2)
+                    If arrMilestones(5, i) = k Then
+                        arrMile(0, j) = arrMilestones(0, i)
+                        arrMile(1, j) = arrMilestones(1, i)
+                        arrMile(2, j) = arrMilestones(2, i)
+                        arrMile(3, j) = arrMilestones(3, i)
+                        arrMile(4, j) = arrMilestones(4, i)
+                        arrMile(5, j) = arrMilestones(5, i)
+                        j = j + 1
+                    End If
+                Next i
+            'Next j
+            dictMile(k) = arrMile
+        Next
+        
+        'Print Milestone data to Worksheet
+        Dim col As Long
+        Dim rw As Long
+        Dim outputArr As Variant
+        Dim mileTitle As Variant
+        Dim numCase As Long
+        
+        Cells.Clear
+        Range("B2") = "Request Number"
+        Range("C2") = "Due Date"
+        Range("D2") = "Days Left"
+        Range("E2") = "Days Taken"
+        Range("F2") = "Extension Days"
+        Range("B2:F2").Font.Bold = True
+        
+        i = 3
+        For Each k In dictMile.Keys
+            numCase = k
+            Select Case numCase
+                Case 10
+                    Range("B" & i) = "01 - Assigned to Analyst"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E3"), shCol.Range("F3"), shCol.Range("G3"))
+                Case 20
+                    Range("B" & i) = "02 - Tasking"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E5"), shCol.Range("F5"), shCol.Range("G5"))
+                Case 30
+                    Range("B" & i) = "03 - Review"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E7"), shCol.Range("F7"), shCol.Range("G7"))
+                Case 40
+                    Range("B" & i) = "04 - Consultations"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E9"), shCol.Range("F9"), shCol.Range("G9"))
+                Case 50
+                    Range("B" & i) = "05 - Post-Consult Review"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E11"), shCol.Range("F11"), shCol.Range("G11"))
+                Case 60
+                    Range("B" & i) = "06 - Approval"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E13"), shCol.Range("F13"), shCol.Range("G13"))
+                Case 71
+                    Range("B" & i) = "07 - No Milestones"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E15"), shCol.Range("F15"), shCol.Range("G15"))
+                Case 72
+                    Range("B" & i) = "08 - File on Hold"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E17"), shCol.Range("F17"), shCol.Range("G17"))
+                Case 73
+                    Range("B" & i) = "09 - File Should Be Closed"
+                    Range("B" & i & ":F" & i).Interior.Color = RGB(shCol.Range("E19"), shCol.Range("F19"), shCol.Range("G19"))
+            End Select
+
+            outputArr = TransposeArray(dictMile(k))
+            For rw = LBound(outputArr, 1) To UBound(outputArr, 1)
+                For col = LBound(outputArr, 2) To UBound(outputArr, 2) - 1
+                    Range("B" & i).Offset(1, col).Value = outputArr(rw, col)
+                Next col
+                i = i + 1
+            Next rw
+            i = i + 2
+        Next
+End Sub

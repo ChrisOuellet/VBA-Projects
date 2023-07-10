@@ -1,0 +1,641 @@
+Function TransposeArray(MyArray As Variant) As Variant
+    Dim x As Long, y As Long
+    Dim maxX As Long, minX As Long
+    Dim maxY As Long, minY As Long
+    
+    Dim tempArr As Variant
+    
+    'Get Upper and Lower Bounds
+    maxX = UBound(MyArray, 1)
+    minX = LBound(MyArray, 1)
+    maxY = UBound(MyArray, 2)
+    minY = LBound(MyArray, 2)
+    
+    'Create New Temp Array
+    ReDim tempArr(minY To maxY, minX To maxX)
+    
+    'Transpose the Array
+    For x = minX To maxX
+        For y = minY To maxY
+            tempArr(y, x) = MyArray(x, y)
+        Next y
+    Next x
+    
+    'Output Array
+    TransposeArray = tempArr
+    
+End Function
+'--------------------------------
+Sub TestTransposeArray()
+    Dim testArr(1 To 3, 1 To 2) As Variant
+    Dim outputArr As Variant
+    
+    'Assign Array Values
+    testArr(1, 1) = "Steve"
+    testArr(1, 2) = "Johnson"
+    testArr(2, 1) = "Ryan"
+    testArr(2, 2) = "Johnson"
+    testArr(3, 1) = "Andrew"
+    testArr(3, 2) = "Scott"
+    
+    'Call Transpose Function
+    outputArr = TransposeArray(testArr)
+    
+    'Test Output
+    MsgBox outputArr(2, 1)
+End Sub
+'------------------------------------
+Function buildMilestonesTwo(ByRef arrHC As Variant, ByRef arrPHAC As Variant)
+   
+    Dim arrDataHC As Variant
+    Dim arrDataPHAC As Variant
+    Dim arrFinal As Variant
+    Dim i As Long
+    Dim j As Long
+    Dim req As String
+    Dim totalTime As Single
+    Dim arr As Variant
+    Dim arrX As Variant
+    Dim dictHCReq As New Dictionary
+    Dim dictPHACReq As New Dictionary
+    Dim xTotal As Long
+    Dim userName As String
+    Dim firstName As String
+    Dim lastName As String
+    Dim key As Variant
+
+        'get requests in Dictionary (early binding)
+        'HC
+        For i = LBound(arrHC, 2) To UBound(arrHC, 2)
+            If dictHCReq.Exists(arrHC(0, i)) = False Then
+                dictHCReq.Add arrHC(0, i), 1
+            Else
+                dictHCReq(arrHC(0, i)) = dictHCReq(arrHC(0, i)) + 1
+            End If
+        Next i
+        
+        'PHAC
+        For i = LBound(arrPHAC, 2) To UBound(arrPHAC, 2)
+            If dictPHACReq.Exists(arrPHAC(0, i)) = False Then
+                dictPHACReq.Add arrPHAC(0, i), 1
+            Else
+                dictPHACReq(arrPHAC(0, i)) = dictPHACReq(arrPHAC(0, i)) + 1
+            End If
+        Next i
+
+        'set each action in dict array
+        'HC
+        For Each key In dictHCReq.Keys
+            ReDim arr(1 To 6, 1 To dictHCReq(key))
+            j = 1
+            For i = LBound(arrHC, 2) To UBound(arrHC, 2)
+                If arrHC(0, i) = key Then
+                    arr(1, j) = "HC-" & arrHC(3, i) & "-" & Left(arrHC(4, i), 4) & "-" & Right(arrHC(4, i), 6)
+                    arr(2, j) = arrHC(1, i) 'actionID
+                    arr(3, j) = arrHC(2, i) 'action closed date
+                    arr(4, j) = arrHC(5, i) 'request due date
+                    arr(5, j) = arrHC(6, i) 'extension
+                    arr(6, j) = arrHC(7, i) 'days taken
+                    j = j + 1
+                End If
+            Next i
+            dictHCReq(key) = arr
+        Next key
+        
+        'PHAC
+        For Each key In dictPHACReq.Keys
+            ReDim arr(1 To 6, 1 To dictPHACReq(key))
+            j = 1
+            For i = LBound(arrPHAC, 2) To UBound(arrPHAC, 2)
+                If arrPHAC(0, i) = key Then
+                    arr(1, j) = "PHAC-" & arrPHAC(3, i) & "-" & Left(arrPHAC(4, i), 4) & "-" & Right(arrPHAC(4, i), 6)
+                    arr(2, j) = arrPHAC(1, i)   'actionID
+                    arr(3, j) = arrPHAC(2, i)   'action closed date
+                    arr(4, j) = arrPHAC(5, i)   'request due date
+                    arr(5, j) = arrPHAC(6, i)   'extension
+                    arr(6, j) = arrPHAC(7, i)   'days taken
+                    j = j + 1
+                End If
+            Next i
+            dictPHACReq(key) = arr
+        Next key
+        
+        'create milestones array (arr)
+        xTotal = dictHCReq.Count + dictPHACReq.Count
+        ReDim arr(5, xTotal - 1)
+        j = 0
+        For Each key In dictHCReq.Keys
+            arrX = logicProc("HC", dictHCReq(key))    'pass request actions array to function
+            arr(0, j) = arrX(0) 'Req number
+            arr(1, j) = arrX(1) 'due date
+            arr(2, j) = DateDiff("d", Date, arrX(1)) 'days left or overdue
+            arr(3, j) = arrX(2) 'days taken
+            arr(4, j) = arrX(3) 'extensions days
+            arr(5, j) = arrX(4) 'milestone
+            j = j + 1
+        Next key
+        
+        For Each key In dictPHACReq.Keys
+            arrX = logicProc("PHAC", dictPHACReq(key))    'pass request actions array to function
+            arr(0, j) = arrX(0) 'Req number
+            arr(1, j) = arrX(1) 'due date
+            arr(2, j) = DateDiff("d", Date, arrX(1)) 'days left or overdue
+            arr(3, j) = arrX(2) 'days taken
+            arr(4, j) = arrX(3) 'extensions days
+            arr(5, j) = arrX(4) 'milestone
+            j = j + 1
+        Next key
+
+        buildMilestonesTwo = sortArray(arr)
+
+End Function
+'------------------------
+Function buildMilestonesOne(ByRef arrHC As Variant, dept As String)
+    Dim arrDataHC As Variant
+    Dim arrFinal As Variant
+    Dim i As Long
+    Dim j As Long
+    Dim req As String
+    Dim totalTime As Single
+    Dim arr As Variant
+    Dim arrX As Variant
+    Dim dictHCReq As New Dictionary
+    Dim xTotal As Long
+    Dim userName As String
+    Dim firstName As String
+    Dim lastName As String
+    Dim key As Variant
+
+        'get requests in Dictionary (early binding)
+        For i = LBound(arrHC, 2) To UBound(arrHC, 2)
+            If dictHCReq.Exists(arrHC(0, i)) = False Then
+                dictHCReq.Add arrHC(0, i), 1
+            Else
+                dictHCReq(arrHC(0, i)) = dictHCReq(arrHC(0, i)) + 1
+            End If
+        Next i
+
+        'set each action in dict array
+        For Each key In dictHCReq.Keys
+            ReDim arr(1 To 6, 1 To dictHCReq(key))
+            j = 1
+            For i = LBound(arrHC, 2) To UBound(arrHC, 2)
+                If arrHC(0, i) = key Then
+                    arr(1, j) = dept & "-" & arrHC(3, i) & "-" & Left(arrHC(4, i), 4) & "-" & Right(arrHC(4, i), 6)
+                    arr(2, j) = arrHC(1, i) 'actionID
+                    arr(3, j) = arrHC(2, i) 'action closed date
+                    arr(4, j) = arrHC(5, i) 'request due date
+                    arr(5, j) = arrHC(6, i) 'extension
+                    arr(6, j) = arrHC(7, i) 'days taken
+                    j = j + 1
+                End If
+            Next i
+            dictHCReq(key) = arr
+        Next key
+        
+        'create milestones array (arr)
+        xTotal = dictHCReq.Count
+        ReDim arr(5, xTotal - 1)
+        j = 0
+        For Each key In dictHCReq.Keys
+            arrX = logicProc(dept, dictHCReq(key))    'pass request actions array to function
+            If arrX(4) = 72 Then
+                arr(0, j) = arrX(0) 'Req number
+                arr(1, j) = arrX(1) 'due date
+                arr(2, j) = 30 + arrX(3) - arrX(2) 'days left or overdue
+                arr(3, j) = arrX(2) 'days taken
+                arr(4, j) = arrX(3) 'extensions days
+                arr(5, j) = arrX(4) 'milestone
+            Else
+                arr(0, j) = arrX(0) 'Req number
+                arr(1, j) = arrX(1) 'due date
+                arr(2, j) = DateDiff("d", Date, arrX(1)) 'days left or overdue
+                arr(3, j) = arrX(2) 'days taken
+                arr(4, j) = arrX(3) 'extensions days
+                arr(5, j) = arrX(4) 'milestone
+            End If
+            j = j + 1
+        Next key
+
+        buildMilestonesOne = sortArray(arr)
+
+End Function
+'------------------------------
+Function logicProc(dept As String, ByRef arr As Variant)
+    Dim arrY(4) As Variant
+    Dim i As Long
+    Dim ar As Variant
+    Dim dictActions As New Dictionary
+    Dim openAction As Boolean
+    Dim milestone As Long
+    
+        'create dict for the actions
+        If dept = "HC" Then
+            ar = shSettings.Range("A1").CurrentRegion
+        Else
+            ar = shSettings.Range("D1").CurrentRegion
+        End If
+        With dictActions
+            For i = 1 To UBound(ar)
+                .Add ar(i, 1), ar(i, 2)
+            Next i
+        End With
+        
+        'loop through action array and set dict values
+        openAction = False
+        For i = 1 To UBound(arr, 2)
+            If dictActions.Exists(arr(2, i)) Then
+                If dictActions(arr(2, i)) = 0 Or dictActions(arr(2, i)) = 2 Then
+                    If IsNull(arr(3, i)) Then
+                        dictActions(arr(2, i)) = 1  'open action
+                        openAction = True
+                    Else
+                        dictActions(arr(2, i)) = 2  'closed action (0 = does not exist)
+                    End If
+                End If
+            End If
+        Next i
+        
+        'logic process
+        'no open actions
+        If dept = "HC" Then
+            If openAction = False Then
+                If (dictActions(40) = 2 Or _
+                   dictActions(46) = 2 Or _
+                   dictActions(47) = 2 Or _
+                   dictActions(48) = 2 Or _
+                   dictActions(50) = 2 Or _
+                   dictActions(53) = 2 Or _
+                   dictActions(67) = 2 Or _
+                   dictActions(148) = 2 Or _
+                   dictActions(149) = 2 Or _
+                   dictActions(150) = 2) _
+                   And (dictActions(32) = 2 Or _
+                   dictActions(38) = 2 Or _
+                   dictActions(157) = 2) Then
+                        milestone = 73  'should be closed
+                Else
+                    milestone = 71  'no milestone
+                End If
+            Else
+                If dictActions(29) = 1 Then
+                    milestone = 72  'on hold
+                ElseIf dictActions(134) = 1 Then
+                    milestone = 10  'assign to analyst
+                ElseIf dictActions(84) = 1 Or _
+                       dictActions(114) = 1 Or _
+                       dictActions(166) = 1 Or _
+                       dictActions(207) = 1 Then
+                            milestone = 20  'tasking
+                ElseIf dictActions(11) = 1 Or _
+                       dictActions(12) = 1 Or _
+                       dictActions(13) = 1 Or _
+                       dictActions(14) = 1 Or _
+                       dictActions(15) = 1 Or _
+                       dictActions(111) = 1 Or _
+                       dictActions(112) = 1 Or _
+                       dictActions(125) = 1 Or _
+                       dictActions(126) = 1 Or _
+                       dictActions(127) = 1 Or _
+                       dictActions(128) = 1 Or _
+                       dictActions(129) = 1 Or _
+                       dictActions(130) = 1 Or _
+                       dictActions(131) = 1 Or _
+                       dictActions(215) = 1 Or _
+                       dictActions(218) = 1 Or _
+                       dictActions(220) = 1 Then
+                            milestone = 40  'consultations
+                ElseIf (dictActions(32) = 1 Or _
+                       dictActions(38) = 1 Or _
+                       dictActions(157) = 1) _
+                       And (dictActions(28) = 2 Or _
+                       dictActions(28) = 1) _
+                       And (dictActions(40) = 1 Or _
+                       dictActions(46) = 1 Or _
+                       dictActions(47) = 1 Or _
+                       dictActions(48) = 1 Or _
+                       dictActions(53) = 1 Or _
+                       dictActions(67) = 1 Or _
+                       dictActions(148) = 1 Or _
+                       dictActions(149) = 1 Or _
+                       dictActions(150) = 1) Then
+                            milestone = 60  'approval
+                ElseIf dictActions(37) = 1 And _
+                       (dictActions(11) = 2 Or _
+                       dictActions(12) = 2 Or _
+                       dictActions(13) = 2 Or _
+                       dictActions(14) = 2 Or _
+                       dictActions(15) = 2 Or _
+                       dictActions(111) = 2 Or _
+                       dictActions(112) = 2 Or _
+                       dictActions(125) = 2 Or _
+                       dictActions(126) = 2 Or _
+                       dictActions(127) = 2 Or _
+                       dictActions(128) = 2 Or _
+                       dictActions(129) = 2 Or _
+                       dictActions(130) = 2 Or _
+                       dictActions(131) = 2 Or _
+                       dictActions(215) = 2 Or _
+                       dictActions(218) = 2 Or _
+                       dictActions(220) = 2) Then
+                            milestone = 50  'post-consult review
+                ElseIf dictActions(37) = 1 Then
+                            milestone = 30  'review
+                Else
+                    milestone = 71  'no milestone
+                End If
+            End If
+        Else    'PHAC Milestone Logic************************
+            If openAction = False Then
+                If (dictActions(40) = 2 Or _
+                   dictActions(46) = 2 Or _
+                   dictActions(47) = 2 Or _
+                   dictActions(48) = 2 Or _
+                   dictActions(50) = 2 Or _
+                   dictActions(53) = 2 Or _
+                   dictActions(67) = 2 Or _
+                   dictActions(148) = 2 Or _
+                   dictActions(149) = 2 Or _
+                   dictActions(150) = 2) _
+                   And (dictActions(32) = 2 Or _
+                   dictActions(38) = 2 Or _
+                   dictActions(157) = 2) Then
+                        milestone = 73  'should be closed
+                Else
+                    milestone = 71  'no milestone
+                End If
+            Else
+                If dictActions(29) = 1 Then
+                    milestone = 72  'on hold
+                ElseIf dictActions(134) = 1 Then
+                    milestone = 10  'assign to analyst
+                ElseIf dictActions(84) = 1 Or _
+                       dictActions(114) = 1 Or _
+                       dictActions(166) = 1 Or _
+                       dictActions(105) = 1 Then
+                            milestone = 20  'tasking
+                ElseIf dictActions(11) = 1 Or _
+                       dictActions(12) = 1 Or _
+                       dictActions(13) = 1 Or _
+                       dictActions(14) = 1 Or _
+                       dictActions(15) = 1 Or _
+                       dictActions(111) = 1 Or _
+                       dictActions(112) = 1 Or _
+                       dictActions(125) = 1 Or _
+                       dictActions(126) = 1 Or _
+                       dictActions(127) = 1 Or _
+                       dictActions(128) = 1 Or _
+                       dictActions(129) = 1 Or _
+                       dictActions(130) = 1 Or _
+                       dictActions(131) = 1 Or _
+                       dictActions(208) = 1 Then
+                            milestone = 40  'consultations
+                ElseIf (dictActions(32) = 1 Or _
+                       dictActions(38) = 1 Or _
+                       dictActions(157) = 1) _
+                       And (dictActions(28) = 2 Or _
+                       dictActions(28) = 1) _
+                       And (dictActions(40) = 1 Or _
+                       dictActions(46) = 1 Or _
+                       dictActions(47) = 1 Or _
+                       dictActions(48) = 1 Or _
+                       dictActions(53) = 1 Or _
+                       dictActions(67) = 1 Or _
+                       dictActions(148) = 1 Or _
+                       dictActions(149) = 1 Or _
+                       dictActions(150) = 1) Then
+                            milestone = 60  'approval
+                ElseIf dictActions(37) = 1 And _
+                       (dictActions(11) = 2 Or _
+                       dictActions(12) = 2 Or _
+                       dictActions(13) = 2 Or _
+                       dictActions(14) = 2 Or _
+                       dictActions(15) = 2 Or _
+                       dictActions(111) = 2 Or _
+                       dictActions(112) = 2 Or _
+                       dictActions(125) = 2 Or _
+                       dictActions(126) = 2 Or _
+                       dictActions(127) = 2 Or _
+                       dictActions(128) = 2 Or _
+                       dictActions(129) = 2 Or _
+                       dictActions(130) = 2 Or _
+                       dictActions(131) = 2 Or _
+                       dictActions(208) = 2) Then
+                            milestone = 50  'post-consult review
+                ElseIf dictActions(37) = 1 Then
+                            milestone = 30  'review
+                Else
+                    milestone = 71  'no milestone
+                End If
+            End If
+        End If
+        'return data with Milestone
+        arrY(0) = arr(1, 1) 'req#
+        arrY(1) = arr(4, 1) 'due date
+        arrY(2) = arr(6, 1) 'days taken
+        arrY(3) = arr(5, 1) 'extension
+        arrY(4) = milestone 'milestone
+        logicProc = arrY
+
+End Function
+'---------------------------
+Function sortArray(ByRef arr As Variant)
+    Dim arrY As Variant
+    Dim collID As String
+    Dim total As Long
+    Dim i As Long
+    Dim j As Long
+    Dim y As Long
+    Dim x As Variant
+    Dim coll10 As New Collection, coll20 As New Collection, coll30 As New Collection, coll40 As New Collection
+    Dim coll50 As New Collection, coll60 As New Collection, coll71 As New Collection, coll72 As New Collection
+    Dim coll73 As New Collection
+        
+        'create coll
+        For i = LBound(arr, 2) To UBound(arr, 2)
+            collID = arr(5, i)
+            
+            Select Case collID
+                Case 10
+                    coll10.Add arr(0, i)
+                Case 20
+                    coll20.Add arr(0, i)
+                Case 30
+                    coll30.Add arr(0, i)
+                Case 40
+                    coll40.Add arr(0, i)
+                Case 50
+                    coll50.Add arr(0, i)
+                Case 60
+                    coll60.Add arr(0, i)
+                Case 71
+                    coll71.Add arr(0, i)
+                Case 72
+                    coll72.Add arr(0, i)
+                Case 73
+                    coll73.Add arr(0, i)
+            End Select
+        Next i
+        
+        'reset all array rows to collections in order
+        total = coll10.Count + coll20.Count + coll30.Count + coll40.Count + coll50.Count + coll60.Count + coll71.Count + coll72.Count + coll73.Count
+        
+        ReDim arrY(LBound(arr, 1) To UBound(arr, 1), LBound(arr, 2) To UBound(arr, 2))
+        y = 0
+        'For i = 1 To total
+            If coll10.Count > 0 Then
+                For j = 1 To coll10.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll10(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll20.Count > 0 Then
+                For j = 1 To coll20.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll20(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll30.Count > 0 Then
+                For j = 1 To coll30.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll30(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll40.Count > 0 Then
+                For j = 1 To coll40.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll40(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll50.Count > 0 Then
+                For j = 1 To coll50.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll50(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll60.Count > 0 Then
+                For j = 1 To coll60.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll60(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll71.Count > 0 Then
+                For j = 1 To coll71.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll71(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll72.Count > 0 Then
+                For j = 1 To coll72.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll72(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+            
+            If coll73.Count > 0 Then
+                For j = 1 To coll73.Count
+                    For x = LBound(arr, 2) To UBound(arr, 2)
+                       If arr(0, x) = coll73(j) Then
+                          arrY(0, y) = arr(0, x)    'req no
+                          arrY(1, y) = arr(1, x)    'due date
+                          arrY(2, y) = arr(2, x)    'days left
+                          arrY(3, y) = arr(3, x)    'days taken
+                          arrY(4, y) = arr(4, x)    'extension
+                          arrY(5, y) = arr(5, x)    'milestone
+                          y = y + 1
+                          Exit For
+                       End If
+                    Next x
+                Next j
+            End If
+        'Next i
+        sortArray = arrY
+End Function
+'***END OF BETA***

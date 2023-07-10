@@ -1,0 +1,40 @@
+Option Explicit
+' Connect to EDIMS' Server
+Private Conn As ADODB.connection
+Function ConnectToDB(Server As String, Database As String) As Boolean
+    Set Conn = New ADODB.connection
+    On Error Resume Next
+    Conn.ConnectionString = "Provider=sqloledb;Data Source=" & Server & ";Initial Catalog=" & Database & ";User Id=[*DELETED*];Password=[*DELETED*];"
+    Conn.Open
+    If Conn.State = 0 Then
+        ConnectToDB = False
+    Else
+        ConnectToDB = True
+    End If
+End Function
+'---------------------------------
+Public Function ReturnArray(DBName As String, SQLdata As String) As Variant()
+    Dim Connected As Boolean
+    Dim recordSet As ADODB.recordSet
+    Dim Field As ADODB.Field
+    Dim arrData As Variant
+        Connected = ConnectToDB("HCONK1VWVDBP019", DBName)
+        If Connected Then
+        'get dataset into an Array
+            Set recordSet = New ADODB.recordSet
+            recordSet.CursorLocation = adUseClient
+            recordSet.CursorType = adOpenStatic
+            recordSet.Open SQLdata, Conn, adOpenStatic, adLockReadOnly, adCmdText
+            If recordSet.State Then
+                If recordSet.EOF Then
+                    ReDim arrData(0, 0)
+                    arrData(0, 0) = 0
+                Else
+                    arrData = recordSet.GetRows
+                    Set recordSet = Nothing
+                End If
+            End If
+            Conn.Close
+        End If
+        ReturnArray = arrData
+End Function
