@@ -1,4 +1,4 @@
-'''vba
+```vba
 Sub fetchRequest()
     Dim SQLuser As String
     Dim SQLdata As String
@@ -174,4 +174,4 @@ Sub fetchRequest()
             i = i + 2
         Next
 End Sub
-'''
+```
